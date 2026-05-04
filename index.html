@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML to SVG Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #080808;
+  --bg2: #0e0e0e;
+  --surface: rgba(255,255,255,0.04);
+  --surface-hover: rgba(255,255,255,0.07);
+  --border: rgba(255,255,255,0.08);
+  --border-lit: rgba(255,255,255,0.18);
+  --text: #e8e8e8;
+  --text-dim: rgba(255,255,255,0.35);
+  --accent: #c8f55a;
+  --accent-dim: rgba(200,245,90,0.12);
+  --accent-glow: rgba(200,245,90,0.2);
+  --blue: #5ab4f5;
+  --blue-dim: rgba(90,180,245,0.12);
+  --red: #f55a5a;
+  --red-dim: rgba(245,90,90,0.08);
+}
+
+html { height: 100%; }
+
+body {
+  font-family: 'DM Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.mesh {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(200,245,90,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(90,180,245,0.04) 0%, transparent 60%);
+}
+
+.page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 56px 24px 100px;
+  position: relative;
+  z-index: 10;
+}
+
+header {
+  margin-bottom: 52px;
+}
+
+.label-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  margin-bottom: 20px;
+}
+
+.label-chip::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+h1 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(36px, 8vw, 68px);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+h1 .arrow {
+  color: var(--accent);
+}
+
+.tagline {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 22px;
+  margin-bottom: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.2s;
+}
+
+.card:hover {
+  border-color: var(--border-lit);
+}
+
+.card-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.file-zone {
+  border: 1px dashed rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.file-zone:hover, .file-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.file-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.drop-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.9;
+}
+
+.drop-label strong {
+  color: var(--text);
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.file-chosen {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--accent);
+  min-height: 14px;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 13px 20px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-lit);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.09);
+  border-color: rgba(255,255,255,0.28);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06);
+}
+
+.btn:active:not(:disabled) {
+  background: rgba(255,255,255,0.12);
+}
+
+.btn:disabled {
+  border-color: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.18);
+  cursor: not-allowed;
+}
+
+.btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #111;
+  font-weight: 500;
+}
+
+.btn-accent:hover:not(:disabled) {
+  background: #d8ff70;
+  border-color: #d8ff70;
+  box-shadow: 0 0 24px var(--accent-glow);
+}
+
+.btn-accent:active:not(:disabled) {
+  background: #bae840;
+}
+
+.btn-accent:disabled {
+  background: rgba(200,245,90,0.1);
+  border-color: transparent;
+  color: rgba(200,245,90,0.3);
+}
+
+.btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.code-out {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.5);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  padding: 14px 16px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 130px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.cdn-out {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  color: var(--blue);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  line-height: 1.9;
+  padding: 14px 16px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 140px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(90,180,245,0.2) transparent;
+}
+
+.size-row {
+  display: flex;
+  gap: 20px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.size-row span strong { color: var(--text); }
+
+.sep {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  margin: 16px 0;
+}
+
+.cdn-head {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.warn-card {
+  background: var(--red-dim);
+  border: 1px solid rgba(245,90,90,0.15);
+  border-radius: 14px;
+  padding: 18px 20px;
+  font-size: 11.5px;
+  color: rgba(245,90,90,0.75);
+  line-height: 1.8;
+}
+
+.warn-head {
+  color: var(--red);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.how-list {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 2;
+  counter-reset: steps;
+  list-style: none;
+  padding: 0;
+}
+
+.how-list li { counter-increment: steps; }
+
+.how-list li::before {
+  content: counter(steps, decimal-leading-zero) ' ';
+  color: var(--accent);
+  opacity: 0.7;
+}
+
+.how-list b { color: var(--text); font-weight: 500; }
+
+.how-note {
+  font-size: 11px;
+  color: rgba(255,255,255,0.15);
+  margin-top: 10px;
+  line-height: 1.7;
+}
+
+footer {
+  margin-top: 60px;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255,255,255,0.14);
+  letter-spacing: 0.08em;
+}
+
+footer a { color: rgba(255,255,255,0.3); text-decoration: none; }
+footer a:hover { color: var(--text); }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="mesh"></div>
+
+<div class="page">
+
+  <header>
+    <div class="label-chip">SVG Wrapper Generator</div>
+    <h1>HTML<span class="arrow"> → </span>SVG</h1>
+    <div class="tagline">Encode HTML into a self-loading SVG wrapper for CDN delivery.</div>
+  </header>
+
+  <div class="card">
+    <div class="card-label">Input — Select File</div>
+    <div class="file-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".html">
+      <div class="drop-label">
+        <strong>Drop .html file here</strong>
+        or click to browse
+      </div>
+      <div class="file-chosen" id="fileName"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Actions</div>
+    <div class="btn-row">
+      <button class="btn btn-accent" onclick="generate()">Generate SVG</button>
+      <button class="btn" id="downloadBtn" onclick="download()" disabled>Download SVG</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="outputBlock">
+    <div class="card-label">Output — Preview</div>
+    <div class="code-out" id="preview"></div>
+    <div class="size-row" id="sizeRow"></div>
+    <hr class="sep">
+    <div class="cdn-head">CDN mirrors — replace username · repo · branch · path</div>
+    <div class="cdn-out" id="cdnlist"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">How it works</div>
+    <ol class="how-list">
+      <li>Upload your <b>.html</b> file and click <b>Generate SVG</b></li>
+      <li>Download the result — save it as <b>index.svg</b></li>
+      <li>Commit <b>index.svg</b> to your GitHub repository</li>
+      <li>Replace placeholders in the CDN mirror URLs above</li>
+      <li>Done — the SVG loads your HTML via an embedded iframe</li>
+    </ol>
+    <div class="how-note">// this tool does not host or publish — it only formats links to files you already uploaded</div>
+  </div>
+
+  <div class="warn-card">
+    <div class="warn-head">⚠ Limits</div>
+    jsDelivr GitHub cap: ~50 MB per file &nbsp;/&nbsp; Base64 bloat: ~33% &nbsp;/&nbsp; Keep source HTML under 35 MB
+  </div>
+
+  <footer>
+    Made by <a href="https://reeyuki.nekoweb.org" target="_blank">Reeyuki</a>
+  </footer>
+
+</div>
+
+<script>
+let svgContent = "";
+
+const fileInput = document.getElementById("fileInput");
+const fileNameEl = document.getElementById("fileName");
+const dropZone = document.getElementById("dropZone");
+const downloadBtn = document.getElementById("downloadBtn");
+const outputBlock = document.getElementById("outputBlock");
+
+fileInput.addEventListener("change", () => {
+  const f = fileInput.files[0];
+  fileNameEl.textContent = f ? "» " + f.name + " loaded" : "";
+});
+
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropZone.classList.remove("drag-over");
+  if (e.dataTransfer.files.length) {
+    fileInput.files = e.dataTransfer.files;
+    fileNameEl.textContent = "» " + e.dataTransfer.files[0].name + " loaded";
+  }
+});
+
+function formatSize(bytes) {
+  return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+}
+
+function generate() {
+  const file = fileInput.files[0];
+  if (!file) { alert("No file selected."); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const encoded = btoa(unescape(encodeURIComponent(e.target.result)));
+    svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="position:fixed;top:0;left:0;">
+<foreignObject x="0" y="0" width="100%" height="100%">
+<body xmlns="http://www.w3.org/1999/xhtml">
+<iframe id="test" style="position:fixed;top:0;left:0;width:100%;height:100%;border:none;margin:0;padding:0;overflow:hidden;"></iframe>
+<script>
+let encoded = "${encoded}";
+document.getElementById("test").srcdoc = atob(encoded);
+<\/script>
+</body>
+</foreignObject>
+</svg>`;
+
+    document.getElementById("preview").textContent = svgContent.slice(0, 600) + "\n\n… [truncated]";
+
+    const svgSize = new Blob([svgContent]).size;
+    document.getElementById("sizeRow").innerHTML =
+      `<span>SRC &nbsp;<strong>${formatSize(file.size)}</strong></span>` +
+      `<span>OUT &nbsp;<strong>${formatSize(svgSize)}</strong></span>`;
+
+    document.getElementById("cdnlist").textContent = [
+      "https://quantil.jsdelivr.net/gh/USERNAME/REPO@BRANCH/PATH/index.svg",
+      "https://originfastly.jsdelivr.net/gh/USERNAME/REPO@BRANCH/PATH/index.svg",
+      "https://gcore.jsdelivr.net/gh/USERNAME/REPO@BRANCH/PATH/index.svg",
+      "https://esm.sh/gh/USERNAME/REPO@BRANCH/PATH/index.svg",
+      "https://cdn.statically.io/gh/USERNAME/REPO@BRANCH/PATH/index.svg",
+      "https://cdn.staticdelivr.com/gh/USERNAME/REPO/BRANCH/PATH/index.svg"
+    ].join("\n");
+
+    outputBlock.classList.remove("hidden");
+    downloadBtn.disabled = false;
+  };
+  reader.readAsText(file);
+}
+
+function download() {
+  if (!svgContent) { alert("Generate first."); return; }
+  const blob = new Blob([svgContent], { type: "image/svg+xml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "index.svg";
+  a.click();
+}
+</script>
+</body>
+</html>
