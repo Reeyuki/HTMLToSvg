@@ -490,15 +490,20 @@ function buildCdnUrls(user, repo, branch, path, filename) {
   const b = branch || "BRANCH";
   const p = path ? path.replace(/^\/|\/$/g, "") + "/" : "";
   const f = filename || "index.svg";
-  return [
-    `https://cdn.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
-    `https://quantil.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
-    `https://originfastly.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
-    `https://gcore.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
-    `https://esm.sh/gh/${u}/${r}@${b}/${p}${f}`,
-    `https://cdn.statically.io/gh/${u}/${r}@${b}/${p}${f}`,
-    `https://cdn.staticdelivr.com/gh/${u}/${r}/${b}/${p}${f}`
-  ];
+  
+  return {
+    "jsDelivr (Default)": `https://cdn.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
+    "Quantil": `https://quantil.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
+    "Gcore": `https://gcore.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
+    "Fastly (Origin)": `https://originfastly.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
+    "Fastly (Standard)": `https://fastly.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
+    "BunnyCDN": `https://jsdelivr.b-cdn.net/gh/${u}/${r}@${b}/${p}${f}`,
+    "Microsoft China CDN": `https://jsd.onmicrosoft.cn/gh/${u}/${r}@${b}/${p}${f}`,
+    "jsD Mirror": `https://cdn.jsdmirror.com/gh/${u}/${r}@${b}/${p}${f}`,
+    "Statically": `https://cdn.statically.io/gh/${u}/${r}@${b}/${p}${f}`,
+    "Static Delivr": `https://cdn.staticdelivr.com/gh/${u}/${r}/${b}/${p}${f}`,
+    "esm.sh": `https://esm.sh/gh/${u}/${r}@${b}/${p}${f}`
+  };
 }
 
 function renderLinks(urls) {
