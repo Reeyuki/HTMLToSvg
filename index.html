@@ -107,6 +107,33 @@ h1 {
   line-height: 1.6;
 }
 
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 4px;
+  margin: 0 0 16px 0;
+}
+
+.mode-btn {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--dim);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mode-btn:hover { color: var(--ink); }
+.mode-btn.active { background: var(--accent); color: #fff; }
+
 .link-btn {
   display: inline-flex;
   align-items: center;
@@ -447,7 +474,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
   <header>
     <h1>HTML to SVG Converter</h1>
-    <div class="tagline">Wrap an HTML file into a self-loading SVG so it can be served through GitHub-backed CDNs. Follow the numbered steps below in order, including creating the repo if you don't already have one.</div>
+    <div class="tagline">Wrap an HTML file into a self-loading SVG so it can be served through GitHub-backed CDNs. Already have an .svg? Switch modes in step 2 to skip the conversion and just get your CDN links. Follow the numbered steps below in order, including creating the repo if you don't already have one.</div>
   </header>
 
   <div class="card" id="cardStep1">
@@ -472,12 +499,16 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   <div class="card" id="cardStep2">
     <div class="card-head">
       <div class="step-dot" id="dot2">2</div>
-      <div class="card-label">Select your .html file</div>
+      <div class="card-label">Select your file</div>
+    </div>
+    <div class="mode-toggle">
+      <button type="button" class="mode-btn active" id="modeHtmlBtn">I have an .html</button>
+      <button type="button" class="mode-btn" id="modeSvgBtn">I have an .svg</button>
     </div>
     <div class="card-sub">This is the source file on your computer. It stays local, nothing is uploaded anywhere by this page.</div>
     <div class="drop-zone" id="dropZone">
       <input type="file" id="fileInput" accept=".html">
-      <strong>Drop an .html file here</strong>
+      <strong id="dropTitle">Drop an .html file here</strong>
       <span>or click to browse</span>
       <div class="file-chosen" id="fileName"></div>
     </div>
@@ -524,7 +555,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <div class="step-dot" id="dot4">4</div>
       <div class="card-label">Name the output file</div>
     </div>
-    <div class="card-sub">This is the exact filename you'll use when uploading in step 6. You can leave it as "index" if you're not sure.</div>
+    <div class="card-sub">This is the exact filename you'll use when uploading in step 6. You can leave it as "index" if you're not sure. In .svg mode it fills in from your file's name.</div>
     <div class="field svg-suffix">
       <input type="text" id="svgName" placeholder="index" value="index">
     </div>
@@ -555,7 +586,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <li>Go to your repo page on GitHub (the one from step 1)</li>
       <li>If it's the folder from your Path field, open that folder first. Otherwise stay at the top level</li>
       <li>Click <b>Add file</b> → <b>Upload files</b> (top right of the file list)</li>
-      <li>Drag in the <code id="dlNameRef">index.svg</code> file you just downloaded, <b>not</b> the original .html file</li>
+      <li>Drag in the <code id="dlNameRef">index.svg</code> file you just downloaded, <b>not</b> the original source file</li>
       <li>Scroll down and click <b>Commit changes</b></li>
       <li>Wait about a minute, then click one of the links below</li>
     </ol>
@@ -574,7 +605,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     <div class="card-label" style="margin-bottom: 14px;">Quick recap</div>
     <ol class="steps">
       <li>Create a <b>public</b> GitHub repo, or use one you already have (step 1)</li>
-      <li>Pick your <b>.html</b> file (step 2)</li>
+      <li>Pick your <b>.html</b> file, or switch to <b>.svg</b> mode and pick your <b>.svg</b> (step 2)</li>
       <li>Paste that repo's URL (step 3)</li>
       <li>Name the output file (step 4)</li>
       <li>Generate, then download the <b>.svg</b> (step 5)</li>
@@ -598,6 +629,7 @@ let svgContent = "";
 let svgFilename = "index.svg";
 let repoConfirmed = false;
 let fileSelected = false;
+let mode = "html";
 
 const repoConfirm = document.getElementById("repoConfirm");
 const fileInput = document.getElementById("fileInput");
@@ -616,6 +648,9 @@ const dot3 = document.getElementById("dot3");
 const dot4 = document.getElementById("dot4");
 const dot5 = document.getElementById("dot5");
 const dlNameRef = document.getElementById("dlNameRef");
+const modeHtmlBtn = document.getElementById("modeHtmlBtn");
+const modeSvgBtn = document.getElementById("modeSvgBtn");
+const dropTitle = document.getElementById("dropTitle");
 
 function showStatus(message, kind) {
   statusBanner.textContent = message;
@@ -650,11 +685,52 @@ function updateGenerateState() {
 
 repoConfirm.addEventListener("change", updateGenerateState);
 
+function setMode(next) {
+  mode = next;
+  modeHtmlBtn.classList.toggle("active", next === "html");
+  modeSvgBtn.classList.toggle("active", next === "svg");
+  fileInput.value = "";
+  fileInput.accept = next === "svg" ? ".svg" : ".html";
+  fileNameEl.textContent = "";
+  dropZone.classList.remove("has-file");
+  dropTitle.textContent = next === "svg" ? "Drop an .svg file here" : "Drop an .html file here";
+  generateBtn.textContent = next === "svg" ? "Generate links" : "Generate SVG";
+  downloadBtn.disabled = true;
+  outputBlock.classList.add("hidden");
+  svgContent = "";
+  clearStatus();
+  updateGenerateState();
+}
+
+modeHtmlBtn.addEventListener("click", () => setMode("html"));
+modeSvgBtn.addEventListener("click", () => setMode("svg"));
+
+function wrapHtml(html) {
+  const encoded = btoa(unescape(encodeURIComponent(html)));
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="position:fixed;top:0;left:0;">
+<foreignObject x="0" y="0" width="100%" height="100%">
+<body xmlns="http://www.w3.org/1999/xhtml">
+<iframe id="test" style="position:fixed;top:0;left:0;width:100%;height:100%;border:none;margin:0;padding:0;overflow:hidden;"></iframe>
+<script>
+let encoded = "${encoded}";
+document.getElementById("test").srcdoc = atob(encoded);
+<\/script>
+</body>
+</foreignObject>
+</svg>`;
+}
+
 function handleFileChosen(file) {
   if (!file) return;
-  if (!file.name.toLowerCase().endsWith(".html") && !file.name.toLowerCase().endsWith(".htm")) {
-    showStatus("That doesn't look like an .html file. Pick an .html file and try again.", "error");
+  const lower = file.name.toLowerCase();
+  const valid = mode === "svg" ? lower.endsWith(".svg") : lower.endsWith(".html") || lower.endsWith(".htm");
+  if (!valid) {
+    showStatus("That doesn't look like an ." + mode + " file. Pick an ." + mode + " file and try again.", "error");
     return;
+  }
+  if (mode === "svg") {
+    svgNameInput.value = file.name.replace(/\.svg$/i, "");
+    svgNameInput.dispatchEvent(new Event("input"));
   }
   clearStatus();
   fileNameEl.textContent = "Selected: " + file.name + " (" + formatSize(file.size) + ")";
@@ -739,7 +815,6 @@ function buildCdnUrls(user, repo, branch, path, filename) {
   const f = filename || "index.svg";
 
   return {
-    /* --- jsDelivr network --- */
     "jsDelivr (Default)":    `https://cdn.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
     "jsDelivr (Quantil)":    `https://quantil.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
     "jsDelivr (Gcore)":      `https://gcore.jsdelivr.net/gh/${u}/${r}@${b}/${p}${f}`,
@@ -750,17 +825,11 @@ function buildCdnUrls(user, repo, branch, path, filename) {
     "jsDelivr (China)":      `https://jsd.onmicrosoft.cn/gh/${u}/${r}@${b}/${p}${f}`,
     "Static Delivr":         `https://cdn.staticdelivr.com/gh/${u}/${r}/${b}/${p}${f}`,
     "jsD Mirror":            `https://cdn.jsdmirror.com/gh/${u}/${r}@${b}/${p}${f}`,
-
-    /* --- independent mirrors --- */
     "Statically":            `https://cdn.statically.io/gh/${u}/${r}/${b}/${p}${f}`,
-
-    /* --- raw / esm --- */
     "esm.sh":                `https://esm.sh/gh/${u}/${r}@${b}/${p}${f}`,
     "esm.sh (raw)":          `https://esm.sh/gh/${u}/${r}@${b}/${p}${f}?raw`,
     "raw.esm.sh":            `https://raw.esm.sh/gh/${u}/${r}@${b}/${p}${f}`,
-
-    /* --- raw github --- */
-    "GitHack (raw)":         `https://raw.githack.com/${u}/${r}/${b}/${p}${f}`, 
+    "GitHack (raw)":         `https://raw.githack.com/${u}/${r}/${b}/${p}${f}`,
     "GitHack (rawcdn)":      `https://rawcdn.githack.com/${u}/${r}/${b}/${p}${f}`,
     "GitHub Raw":            `https://raw.githubusercontent.com/${u}/${r}/${b}/${p}${f}`,
     "GitHub Raw (mirror)":   `https://githubraw.com/${u}/${r}/${b}/${p}${f}`,
@@ -832,7 +901,7 @@ function generate() {
   clearStatus();
   const file = fileInput.files[0];
   if (!file) {
-    showStatus("No file selected. Go back to step 2 and choose your .html file first.", "error");
+    showStatus("No file selected. Go back to step 2 and choose your file first.", "error");
     return;
   }
   if (!repoConfirm.checked) {
@@ -854,20 +923,11 @@ function generate() {
 
   reader.onload = function(e) {
     try {
-      const encoded = btoa(unescape(encodeURIComponent(e.target.result)));
-      svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="position:fixed;top:0;left:0;">
-<foreignObject x="0" y="0" width="100%" height="100%">
-<body xmlns="http://www.w3.org/1999/xhtml">
-<iframe id="test" style="position:fixed;top:0;left:0;width:100%;height:100%;border:none;margin:0;padding:0;overflow:hidden;"></iframe>
-<script>
-let encoded = "${encoded}";
-document.getElementById("test").srcdoc = atob(encoded);
-<\/script>
-</body>
-</foreignObject>
-</svg>`;
+      svgContent = mode === "svg" ? e.target.result : wrapHtml(e.target.result);
 
-      document.getElementById("preview").textContent = svgContent.slice(0, 600) + "\n\n… [truncated]";
+      document.getElementById("preview").textContent = svgContent.length > 600
+        ? svgContent.slice(0, 600) + "\n\n… [truncated]"
+        : svgContent;
 
       const svgSize = new Blob([svgContent]).size;
       document.getElementById("sizeRow").innerHTML =
@@ -883,7 +943,12 @@ document.getElementById("test").srcdoc = atob(encoded);
       outputBlock.classList.remove("hidden");
       downloadBtn.disabled = false;
       generateBtn.disabled = false;
-      showStatus("Done. Download the .svg below, then follow step 6 to upload it.", "success");
+      showStatus(
+        mode === "svg"
+          ? "Done. Download the .svg below if you want to rename it, then follow step 6 to upload it."
+          : "Done. Download the .svg below, then follow step 6 to upload it.",
+        "success"
+      );
       outputBlock.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (err) {
       showStatus("Something went wrong while converting this file: " + err.message + ". Try a smaller file or a different one.", "error");
@@ -896,7 +961,7 @@ document.getElementById("test").srcdoc = atob(encoded);
 
 function download() {
   if (!svgContent) {
-    showStatus("Nothing to download yet. Click Generate SVG first.", "error");
+    showStatus("Nothing to download yet. Click Generate first.", "error");
     return;
   }
   const blob = new Blob([svgContent], { type: "image/svg+xml" });
